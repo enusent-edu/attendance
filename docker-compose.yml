@@ -1,0 +1,37 @@
+services:
+  deepface-api:
+    build:
+      context: ./deepface-api
+      dockerfile: Dockerfile
+    container_name: attendance-deepface
+    restart: unless-stopped
+    ports:
+      - "5002:5001"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  attendance-app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: attendance-app
+    restart: unless-stopped
+    ports:
+      - "3017:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DEEPFACE_API_URL=http://attendance-deepface:5001
+    env_file:
+      - .env
+    depends_on:
+      - deepface-api
+
+networks:
+  default:
+    name: attendance-network
