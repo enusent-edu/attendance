@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: attendance-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: attendance
+      POSTGRES_USER: attendance
+      POSTGRES_PASSWORD: attendance_local_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendance"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   deepface-api:
     build:
       context: ./deepface-api
@@ -9,28 +26,37 @@ services:
       - "5002:5001"
     environment:
       - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   attendance-app:
     build:
       context: ./app
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_APP_URL: https://192.168.88.232:4430
     container_name: attendance-app
     restart: unless-stopped
     ports:
       - "3017:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DATABASE_URL=postgresql://attendance:attendance_local_pass@postgres:5432/attendance
       - DEEPFACE_API_URL=http://attendance-deepface:5001
-    env_file:
-      - .env
+      - SESSION_SECRET=local_secret_change_me
     depends_on:
-      - deepface-api
+      postgres:
+        condition: service_healthy
+      deepface-api:
+        condition: service_started
+
+volumes:
+  postgres_data:
 
 networks:
   default:

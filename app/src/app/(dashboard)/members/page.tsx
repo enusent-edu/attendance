@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Search, Plus, Camera, QrCode, X } from 'lucide-react'
 interface Member { id:string; member_no:string; full_name:string; email:string; meta:Record<string,string>|null; face_encoding:number[]|null; qr_code:string; is_active:boolean }
 export default function MembersPage() {
@@ -12,7 +12,8 @@ export default function MembersPage() {
   const [saving, setSaving] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
   const [enrollMsg, setEnrollMsg] = useState('')
-  const videoRef = { current: null as HTMLVideoElement | null }
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream|null>(null)
 
   async function load() {
     setLoading(true)
@@ -32,10 +33,13 @@ export default function MembersPage() {
   async function startEnroll(memberId: string) {
     setEnrollId(memberId); setEnrollMsg('')
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' } })
+    streamRef.current = stream
     setTimeout(() => {
-      const v = document.getElementById('enroll-video') as HTMLVideoElement
-      if (v) { v.srcObject = stream; videoRef.current = v }
-    }, 100)
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play().catch(() => {})
+      }
+    }, 150)
   }
 
   async function captureEnroll() {
@@ -48,7 +52,7 @@ export default function MembersPage() {
     const r = await fetch('/api/face/enroll', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image, member_id: enrollId }) })
     const d = await r.json()
     setEnrolling(false)
-    if (r.ok) { setEnrollMsg('✓ Face enrolled!');(videoRef.current?.srcObject as MediaStream)?.getTracks().forEach(t=>t.stop()); load() }
+    if (r.ok) { setEnrollMsg('✓ Face enrolled!');streamRef.current?.getTracks().forEach(t=>t.stop()); load() }
     else setEnrollMsg(`✗ ${d.error}`)
   }
 
@@ -131,9 +135,9 @@ export default function MembersPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Enroll Face</h2>
-              <button onClick={()=>{setEnrollId(null);(videoRef.current?.srcObject as MediaStream)?.getTracks().forEach(t=>t.stop())}}><X size={18} className="text-gray-400"/></button>
+              <button onClick={()=>{setEnrollId(null);streamRef.current?.getTracks().forEach(t=>t.stop())}}><X size={18} className="text-gray-400"/></button>
             </div>
-            <video id="enroll-video" autoPlay muted className="w-full rounded-lg bg-black mb-3"/>
+            <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-lg bg-black mb-3"/>
             {enrollMsg && <p className={`text-sm mb-3 font-medium ${enrollMsg.startsWith('✓')?'text-emerald-600':'text-red-500'}`}>{enrollMsg}</p>}
             <button onClick={captureEnroll} disabled={enrolling}
               className="w-full bg-violet-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50">
