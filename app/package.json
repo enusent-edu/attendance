@@ -12,7 +12,7 @@
     "@mediapipe/camera_utils": "^0.3.1675466862",
     "@mediapipe/face_mesh": "^0.4.1633559619",
     "@types/pg": "^8.20.0",
-    "@types/qrcode": "^1.5.5",
+    "@types/qrcode": "^1.5.6",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "html5-qrcode": "^2.3.8",
@@ -22,7 +22,8 @@
     "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18",
-    "react-hot-toast": "^2.4.1"
+    "react-hot-toast": "^2.4.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20",
