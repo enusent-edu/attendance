@@ -14,7 +14,7 @@ export default function SchedulesPage() {
   const [groupFilter, setGroupFilter] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadResult, setUploadResult] = useState<{inserted:number;errors:string[]}|null>(null)
-  const [preview, setPreview] = useState<{member_no:string;date:string;shift_start:string;shift_end:string;group_id:string}[]|null>(null)
+  const [preview, setPreview] = useState<{member_no:string;date:string;shift_start:string;shift_end:string;department:string}[]|null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function load() {
@@ -32,9 +32,9 @@ export default function SchedulesPage() {
 
   function downloadTemplate() {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['member_no','date','shift_start','shift_end','group_id'],
-      ['001','2026-07-01','08:00','17:00', groups[0]?.id||''],
-      ['002','2026-07-01','06:00','14:00', groups[0]?.id||''],
+      ['member_no','date','shift_start','shift_end','department'],
+      ['001','2026-07-01','08:00','17:00', groups[0]?.name||''],
+      ['002','2026-07-01','06:00','14:00', groups[0]?.name||''],
     ])
     ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:12},{wch:40}]
     const wb = XLSX.utils.book_new()
@@ -54,7 +54,7 @@ export default function SchedulesPage() {
         date: String(r.date||r['Date']||'').trim(),
         shift_start: String(r.shift_start||r['Shift Start']||'').trim(),
         shift_end: String(r.shift_end||r['Shift End']||'').trim(),
-        group_id: String(r.group_id||r['Group ID']||'').trim(),
+        department: String(r.department||r['Department']||r.group_id||r['Group ID']||'').trim(),
       })).filter(r => r.member_no && r.date)
       setPreview(parsed)
       setUploadResult(null)
@@ -120,18 +120,18 @@ export default function SchedulesPage() {
             <div className="overflow-auto flex-1 mb-4">
               <table className="w-full text-xs">
                 <thead className="bg-gray-50"><tr>
-                  {['Member No','Date','Shift Start','Shift End','Group ID'].map(h=>(
+                  {['Member No','Date','Shift Start','Shift End','Department'].map(h=>(
                     <th key={h} className="px-3 py-2 text-left font-semibold text-gray-500">{h}</th>
                   ))}
                 </tr></thead>
                 <tbody className="divide-y divide-gray-100">
                   {preview.slice(0,50).map((r,i)=>(
-                    <tr key={i} className={!r.group_id ? 'bg-amber-50' : ''}>
+                    <tr key={i} className={!r.department ? 'bg-amber-50' : ''}>
                       <td className="px-3 py-1.5 font-mono">{r.member_no}</td>
                       <td className="px-3 py-1.5">{r.date}</td>
                       <td className="px-3 py-1.5">{r.shift_start}</td>
                       <td className="px-3 py-1.5">{r.shift_end}</td>
-                      <td className="px-3 py-1.5 font-mono text-gray-400 truncate max-w-[120px]">{r.group_id||<span className="text-amber-500">missing</span>}</td>
+                      <td className="px-3 py-1.5 font-mono text-gray-400 truncate max-w-[120px]">{r.department||<span className="text-amber-500">missing</span>}</td>
                     </tr>
                   ))}
                   {preview.length > 50 && <tr><td colSpan={5} className="px-3 py-2 text-gray-400 text-center">...and {preview.length-50} more rows</td></tr>}
