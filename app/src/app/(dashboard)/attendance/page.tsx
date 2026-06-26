@@ -2,9 +2,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Camera, QrCode, CheckCircle, XCircle, RefreshCw, Eye } from 'lucide-react'
 interface Group { id:string; name:string; attendance_method:string }
-interface Log { id:string; status:string; time_in:string; method:string; members:{full_name:string;member_no:string}; groups:{name:string} }
+interface Log { id:string; status:string; time_in:string; time_out:string|null; method:string; members:{full_name:string;member_no:string}; groups:{name:string} }
 const STATUS_COLORS: Record<string,string> = { present:'bg-emerald-100 text-emerald-700', late:'bg-amber-100 text-amber-700', absent:'bg-red-100 text-red-700', excused:'bg-blue-100 text-blue-700' }
-
 
 export default function AttendancePage() {
   const [groups, setGroups] = useState<Group[]>([])
@@ -32,16 +31,28 @@ export default function AttendancePage() {
     const d = await r.json(); setLogs(d.data||[])
   }
 
+  function getSnapshot() {
+    if (!videoRef.current) return null
+    const canvas = document.createElement('canvas')
+    canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight
+    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0)
+    return canvas.toDataURL('image/jpeg', 0.85)
+  }
+
+  async function logAttendance(member_id: string, method: string) {
+    const r = await fetch('/api/attendance', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ member_id, group_id: selectedGroup, method }) })
+    const d = await r.json()
+    return d.data
+  }
+
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:640, height:480 } })
       streamRef.current = stream
       setScanning(true); setResult(null)
       setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play().catch(()=>{})
-        }
+        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(()=>{}) }
       }, 150)
     } catch { setResult({ok:false,msg:'Camera access denied'}) }
   }
@@ -76,16 +87,22 @@ export default function AttendancePage() {
             const r = await fetch('/api/attendance/qr', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ qr_code:qrCode, group_id:selectedGroup }) })
             const d = await r.json(); setProcessing(false)
             if (!r.ok) { setResult({ok:false,msg:d.error||'QR Error'}); return }
-            const hour = new Date().getHours()
-            const status = hour < 8 ? 'present' : hour < 9 ? 'late' : 'present'
-            await fetch('/api/attendance', { method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ member_id:d.member.id, group_id:selectedGroup, method:'qr', status }) })
-            setResult({ok:true, msg:`✓ ${d.member.full_name} — ${status.toUpperCase()} (QR)`}); loadLogs()
+            const log = await logAttendance(d.member.id, 'qr')
+            const msg = formatLogMsg(d.member.full_name, log)
+            setResult({ok:true, msg}); loadLogs()
           },
           ()=>{}
         )
       } catch { setResult({ok:false,msg:'QR scanner error'}); setScanning(false) }
     }, 100)
+  }
+
+  function formatLogMsg(name: string, log: {action:string; status:string; time_out:string; gap_hours?:number}) {
+    if (!log) return `✓ ${name}`
+    if (log.action === 'timeout') return `✓ ${name} — TIME OUT logged`
+    if (log.action === 'too_soon') return `⏱ ${name} — Too soon for time out (${log.gap_hours}h elapsed, need 4h)`
+    if (log.action === 'already_complete') return `ℹ ${name} — Already timed in & out`
+    return `✓ ${name} — ${log.status?.toUpperCase()}`
   }
 
   async function capture() {
@@ -97,18 +114,34 @@ export default function AttendancePage() {
     const image = canvas.toDataURL('image/jpeg', 0.85)
     const r = await fetch('/api/face/identify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image, group_id:selectedGroup }) })
     const d = await r.json()
-    if (!r.ok) { setResult({ok:false,msg:d.error||'Error'}); setProcessing(false); return }
+    if (!r.ok) { setResult({ok:false,msg:'No face detected — move closer or improve lighting'}); setProcessing(false); return }
     if (d.matched && d.member) {
-      const hour = new Date().getHours()
-      const status = hour < 8 ? 'present' : hour < 9 ? 'late' : 'present'
-      await fetch('/api/attendance', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ member_id:d.member.id, group_id:selectedGroup, method:'face', status }) })
-      setResult({ok:true, msg:`✓ ${d.member.full_name} — ${status.toUpperCase()} (${Math.round(d.distance*100)}% match)`})
+      const log = await logAttendance(d.member.id, 'face')
+      const msg = formatLogMsg(d.member.full_name, log)
+      setResult({ok: log?.action !== 'too_soon', msg})
       loadLogs()
     } else {
       setResult({ok:false, msg:'Face not recognized. Try again or enroll.'})
     }
     setProcessing(false)
+    cooldownRef.current = false
+  }
+
+  async function captureMulti() {
+    if (!videoRef.current || !selectedGroup) return
+    const image = getSnapshot(); if (!image) { cooldownRef.current = false; return }
+    const r = await fetch('/api/face/identify', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image, group_id: selectedGroup, multi: true }) })
+    const d = await r.json()
+    if (!r.ok || !d.results?.length) { cooldownRef.current = false; return }
+    const msgs: string[] = []
+    await Promise.all(d.results.map(async (res: {member: {id:string;full_name:string}; distance: number}) => {
+      if (res.member) {
+        const log = await logAttendance(res.member.id, 'face')
+        msgs.push(formatLogMsg(res.member.full_name, log))
+      }
+    }))
+    if (msgs.length) { setResult({ok:true, msg: msgs.join(' · ')}); loadLogs() }
     cooldownRef.current = false
   }
 
@@ -122,7 +155,6 @@ export default function AttendancePage() {
     }
   }
 
-  // Realtime loop — auto-capture on blink
   useEffect(() => {
     if (!realtime) return
     const interval = setInterval(() => {
@@ -238,17 +270,20 @@ export default function AttendancePage() {
         </div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50"><tr>
-            {['Member','Group','Time In','Method','Status'].map(h=>(
+            {['Member','Group','Time In','Time Out','Method','Status'].map(h=>(
               <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
             ))}
           </tr></thead>
           <tbody className="divide-y divide-gray-100">
-            {logs.length===0 ? <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">No records yet</td></tr>
+            {logs.length===0 ? <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">No records yet</td></tr>
             : logs.map(l=>(
               <tr key={l.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2.5 font-medium text-gray-900">{l.members?.full_name}</td>
                 <td className="px-4 py-2.5 text-gray-500 text-xs">{l.groups?.name}</td>
                 <td className="px-4 py-2.5 text-gray-500 text-xs">{l.time_in?new Date(l.time_in).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+                <td className="px-4 py-2.5 text-xs">{l.time_out
+                  ? <span className="text-emerald-600 font-medium">{new Date(l.time_out).toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit'})}</span>
+                  : <span className="text-gray-300">—</span>}</td>
                 <td className="px-4 py-2.5 text-gray-500 capitalize text-xs">{l.method}</td>
                 <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[l.status]||''}`}>{l.status}</span></td>
               </tr>

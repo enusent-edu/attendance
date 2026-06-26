@@ -12,7 +12,7 @@ export default function LoginPage() {
     const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password }) })
     const d = await r.json()
     if (!r.ok) { setError(d.error || 'Login failed'); setLoading(false); return }
-    router.push('/dashboard')
+    router.push(d.user?.role === 'super_admin' ? '/super' : '/dashboard')
   }
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-900 to-indigo-900 flex items-center justify-center p-4">

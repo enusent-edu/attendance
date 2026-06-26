@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 MODEL_NAME     = "ArcFace"
 DETECTOR       = "retinaface"
-YOLO_DETECTOR  = "yolov8"
+YOLO_DETECTOR  = "retinaface"
 DISTANCE_METRIC = "cosine"
 THRESHOLD      = 0.40
 
@@ -58,8 +58,9 @@ def identify():
         body = request.get_json()
         img_path = decode_image(body["image"])
         emb = DeepFace.represent(img_path=img_path, model_name=MODEL_NAME,
-                                  detector_backend=DETECTOR, enforce_detection=True)
+                                  detector_backend=DETECTOR, enforce_detection=False)
         os.unlink(img_path)
+        if not emb: return jsonify({"matched_id": None, "distance": 1.0})
         result = match_encoding(emb[0]["embedding"], body["candidates"])
         return jsonify(result)
     except Exception as e:

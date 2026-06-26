@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
-import { Search, Plus, Camera, QrCode, X } from 'lucide-react'
+import { Search, Plus, Camera, QrCode, X, Upload } from 'lucide-react'
 interface Member { id:string; member_no:string; full_name:string; email:string; meta:Record<string,string>|null; face_encoding:number[]|null; qr_code:string; is_active:boolean }
 export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([])
@@ -8,12 +8,15 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [enrollId, setEnrollId] = useState<string|null>(null)
+  const [enrollTab, setEnrollTab] = useState<'camera'|'upload'>('camera')
   const [form, setForm] = useState({ member_no:'', full_name:'', email:'', phone:'', meta: { position:'' } })
   const [saving, setSaving] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
   const [enrollMsg, setEnrollMsg] = useState('')
+  const [uploadPreview, setUploadPreview] = useState<string|null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream|null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   async function load() {
     setLoading(true)
@@ -30,8 +33,13 @@ export default function MembersPage() {
     setSaving(false); setShowAdd(false); setForm({ member_no:'', full_name:'', email:'', phone:'', meta:{ position:'' } }); load()
   }
 
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach(t=>t.stop())
+    streamRef.current = null
+  }
+
   async function startEnroll(memberId: string) {
-    setEnrollId(memberId); setEnrollMsg('')
+    setEnrollId(memberId); setEnrollMsg(''); setEnrollTab('camera'); setUploadPreview(null)
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' } })
     streamRef.current = stream
     setTimeout(() => {
@@ -42,18 +50,51 @@ export default function MembersPage() {
     }, 150)
   }
 
-  async function captureEnroll() {
-    if (!videoRef.current || !enrollId) return
+  function closeEnroll() {
+    setEnrollId(null); setUploadPreview(null); setEnrollMsg(''); stopCamera()
+  }
+
+  function switchTab(tab: 'camera'|'upload') {
+    setEnrollTab(tab); setEnrollMsg(''); setUploadPreview(null)
+    if (tab === 'upload') { stopCamera() }
+    else {
+      // restart camera
+      navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' } }).then(stream => {
+        streamRef.current = stream
+        setTimeout(() => {
+          if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play().catch(()=>{}) }
+        }, 150)
+      })
+    }
+  }
+
+  async function enrollWithImage(image: string) {
     setEnrolling(true); setEnrollMsg('')
-    const canvas = document.createElement('canvas')
-    canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight
-    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0)
-    const image = canvas.toDataURL('image/jpeg', 0.85)
     const r = await fetch('/api/face/enroll', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ image, member_id: enrollId }) })
     const d = await r.json()
     setEnrolling(false)
-    if (r.ok) { setEnrollMsg('✓ Face enrolled!');streamRef.current?.getTracks().forEach(t=>t.stop()); load() }
+    if (r.ok) { setEnrollMsg('✓ Face enrolled successfully!'); stopCamera(); load() }
     else setEnrollMsg(`✗ ${d.error}`)
+  }
+
+  async function captureEnroll() {
+    if (!videoRef.current || !enrollId) return
+    const canvas = document.createElement('canvas')
+    canvas.width = videoRef.current.videoWidth; canvas.height = videoRef.current.videoHeight
+    canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0)
+    await enrollWithImage(canvas.toDataURL('image/jpeg', 0.85))
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => { setUploadPreview(ev.target?.result as string); setEnrollMsg('') }
+    reader.readAsDataURL(file)
+  }
+
+  async function enrollUpload() {
+    if (!uploadPreview || !enrollId) return
+    await enrollWithImage(uploadPreview)
   }
 
   return (
@@ -135,14 +176,55 @@ export default function MembersPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Enroll Face</h2>
-              <button onClick={()=>{setEnrollId(null);streamRef.current?.getTracks().forEach(t=>t.stop())}}><X size={18} className="text-gray-400"/></button>
+              <button onClick={closeEnroll}><X size={18} className="text-gray-400"/></button>
             </div>
-            <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-lg bg-black mb-3"/>
-            {enrollMsg && <p className={`text-sm mb-3 font-medium ${enrollMsg.startsWith('✓')?'text-emerald-600':'text-red-500'}`}>{enrollMsg}</p>}
-            <button onClick={captureEnroll} disabled={enrolling}
-              className="w-full bg-violet-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50">
-              {enrolling?'Processing...':'Capture & Enroll'}
-            </button>
+
+            {/* Tabs */}
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4">
+              <button onClick={()=>switchTab('camera')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${enrollTab==='camera'?'bg-white text-violet-700 shadow-sm':'text-gray-500'}`}>
+                <Camera size={13}/>Camera
+              </button>
+              <button onClick={()=>switchTab('upload')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${enrollTab==='upload'?'bg-white text-violet-700 shadow-sm':'text-gray-500'}`}>
+                <Upload size={13}/>Upload Photo
+              </button>
+            </div>
+
+            {enrollTab === 'camera' ? (
+              <>
+                <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-lg bg-black mb-3"/>
+                {enrollMsg && <p className={`text-sm mb-3 font-medium ${enrollMsg.startsWith('✓')?'text-emerald-600':'text-red-500'}`}>{enrollMsg}</p>}
+                <button onClick={captureEnroll} disabled={enrolling}
+                  className="w-full bg-violet-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50">
+                  {enrolling?'Processing...':'Capture & Enroll'}
+                </button>
+              </>
+            ) : (
+              <>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange}/>
+                {uploadPreview ? (
+                  <div className="mb-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={uploadPreview} alt="preview" className="w-full rounded-lg object-cover max-h-64"/>
+                    <button onClick={()=>{setUploadPreview(null); setEnrollMsg(''); if(fileRef.current) fileRef.current.value=''}}
+                      className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline">Change photo</button>
+                  </div>
+                ) : (
+                  <button onClick={()=>fileRef.current?.click()}
+                    className="w-full border-2 border-dashed border-gray-200 rounded-lg py-10 flex flex-col items-center gap-2 text-gray-400 hover:border-violet-400 hover:text-violet-500 transition-colors mb-3">
+                    <Upload size={24}/>
+                    <span className="text-sm font-medium">Click to upload photo</span>
+                    <span className="text-xs">JPG, PNG — clear front-facing face</span>
+                  </button>
+                )}
+                {enrollMsg && <p className={`text-sm mb-3 font-medium ${enrollMsg.startsWith('✓')?'text-emerald-600':'text-red-500'}`}>{enrollMsg}</p>}
+                <button onClick={enrollUpload} disabled={enrolling || !uploadPreview}
+                  className="w-full bg-violet-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  {enrolling?'Processing...':'Enroll from Photo'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
