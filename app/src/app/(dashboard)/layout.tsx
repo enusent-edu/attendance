@@ -7,7 +7,7 @@ import { LayoutDashboard, Users, FolderOpen, ClipboardCheck, BarChart3, LogOut, 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/members', label: 'Members', icon: Users },
-  { href: '/groups', label: 'Groups', icon: FolderOpen },
+  { href: '/groups', label: 'Departments', icon: FolderOpen },
   { href: '/attendance', label: 'Attendance', icon: ClipboardCheck },
   { href: '/schedules', label: 'Schedules', icon: Calendar },
   { href: '/shift-change', label: 'Shift Change', icon: Clock },

@@ -15,7 +15,7 @@ export default function DashboardPage() {
 
   const cards = [
     { label:'Total Members', value: stats?.members ?? '—', icon: Users, color:'bg-violet-500' },
-    { label:'Groups', value: stats?.groups ?? '—', icon: FolderOpen, color:'bg-indigo-500' },
+    { label:'Departments', value: stats?.groups ?? '—', icon: FolderOpen, color:'bg-indigo-500' },
     { label:"Today's Present", value: stats ? `${stats.today_present}` : '—', icon: CheckCircle, color:'bg-emerald-500' },
     { label:'Total Logged', value: stats?.today_total ?? '—', icon: Clock, color:'bg-amber-500' },
   ]

@@ -56,7 +56,7 @@ export default function ReportsPage() {
   }
 
   function exportCSV() {
-    const headers = ['Date','Member No','Member','Group','Shift','Time In','Time Out','Hours Worked','Method','Status','Remarks']
+    const headers = ['Date','Member No','Member','Department','Shift','Time In','Time Out','Hours Worked','Method','Status','Remarks']
     const rows = logs.map(l => [
       l.date,
       l.member_no,
@@ -87,7 +87,7 @@ export default function ReportsPage() {
       if (!memberMap[l.member_no]) memberMap[l.member_no] = {}
       memberMap[l.member_no][l.date] = l
     })
-    const headers = ['Member No','Member','Group', ...dates]
+    const headers = ['Member No','Member','Department', ...dates]
     const rows = Object.entries(memberMap).map(([mno, byDate]) => {
       const first = Object.values(byDate)[0]
       return [mno, first.full_name, first.group_name, ...dates.map(d => byDate[d]?.status||'absent')]
@@ -173,7 +173,7 @@ export default function ReportsPage() {
             <label className="block text-xs font-medium text-gray-500 mb-1">Group</label>
             <select value={groupId} onChange={e=>setGroupId(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500">
-              <option value="">All Groups</option>
+              <option value="">All Departments</option>
               {groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
           </div>
@@ -225,7 +225,7 @@ export default function ReportsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Date','Member','Group','Shift','Time In','Time Out','Hours','Method','Status'].map(h=>(
+                  {['Date','Member','Department','Shift','Time In','Time Out','Hours','Method','Status'].map(h=>(
                     <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

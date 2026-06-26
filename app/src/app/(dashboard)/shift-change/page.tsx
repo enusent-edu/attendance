@@ -199,10 +199,10 @@ export default function ShiftChangePage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Group</label>
+                <label className="text-xs text-gray-500 mb-1 block">Department</label>
                 <select required value={form.group_id} onChange={e=>setForm(f=>({...f,group_id:e.target.value}))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500">
-                  <option value="">Select group...</option>
+                  <option value="">Select department...</option>
                   {groups.map(g=><option key={g.id} value={g.id}>{g.name} ({fmt(g.shift_start)}–{fmt(g.shift_end)})</option>)}
                 </select>
               </div>

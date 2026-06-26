@@ -95,10 +95,10 @@ export default function GroupsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Groups</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
         <button onClick={()=>{ setEditGroup(null); setForm({...BLANK_FORM}); setShowAdd(true) }}
           className="flex items-center gap-2 bg-violet-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-violet-700">
-          <Plus size={16}/>Add Group
+          <Plus size={16}/>Add Department
         </button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -135,11 +135,11 @@ export default function GroupsPage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold">{editGroup ? 'Edit Group' : 'Add Group'}</h2>
+              <h2 className="text-lg font-bold">{editGroup ? 'Edit Department' : 'Add Department'}</h2>
               <button onClick={()=>{ setShowAdd(false); setEditGroup(null) }}><X size={18} className="text-gray-400"/></button>
             </div>
             <form onSubmit={saveGroup} className="space-y-3">
-              <input required placeholder="Group Name (e.g. Grade 7-A, Morning Shift)" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}
+              <input required placeholder="Department Name (e.g. Grade 7-A, Morning Shift)" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"/>
               <input placeholder="Description (optional)" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500"/>
@@ -186,7 +186,7 @@ export default function GroupsPage() {
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={()=>{ setShowAdd(false); setEditGroup(null) }} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
                 <button type="submit" disabled={saving} className="flex-1 bg-violet-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50">
-                  {saving ? 'Saving...' : editGroup ? 'Save Changes' : 'Add Group'}
+                  {saving ? 'Saving...' : editGroup ? 'Save Changes' : 'Add Department'}
                 </button>
               </div>
             </form>

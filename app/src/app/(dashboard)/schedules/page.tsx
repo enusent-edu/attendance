@@ -157,7 +157,7 @@ export default function SchedulesPage() {
         </div>
         <select value={groupFilter} onChange={e=>setGroupFilter(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500">
-          <option value="">All Groups</option>
+          <option value="">All Departments</option>
           {groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}
         </select>
       </div>
