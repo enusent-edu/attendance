@@ -65,7 +65,7 @@ export default function ReportsPage() {
       `${fmt(l.shift_start)}-${fmt(l.shift_end)}`,
       fmtTime(l.time_in),
       l.time_out ? fmtTime(l.time_out) : '',
-      l.hours_worked != null ? l.hours_worked.toFixed(2) : '',
+      l.hours_worked != null ? parseFloat(String(l.hours_worked)).toFixed(2) : '',
       l.method,
       l.status,
       l.remarks||'',
@@ -251,7 +251,7 @@ export default function ReportsPage() {
                         : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-xs text-gray-600">
-                      {l.hours_worked != null ? `${l.hours_worked.toFixed(1)}h` : '—'}
+                      {l.hours_worked != null ? `${parseFloat(String(l.hours_worked)).toFixed(1)}h` : '—'}
                     </td>
                     <td className="px-3 py-2.5 text-gray-500 capitalize text-xs">{l.method}</td>
                     <td className="px-3 py-2.5">
